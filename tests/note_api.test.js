@@ -110,6 +110,28 @@ describe('when there is initially some notes saved', () => {
       assert.strictEqual(notesAtEnd.length, helper.initialNotes.length - 1)
     })
   })
+
+  describe('updating of a note', () => {
+    test('succeeds with status code 200', async () => {
+      const notesAtStart = await helper.notesInDb()
+      const noteToUpdate = notesAtStart[0]
+
+      noteToUpdate.content = 'Updated content'
+      noteToUpdate.important = !noteToUpdate.important
+
+      const { body: updatedNote } = await api
+        .put(`/api/notes/${noteToUpdate.id}`)
+        .send(noteToUpdate)
+        .expect(200)
+      assert.deepStrictEqual(updatedNote, noteToUpdate)
+
+      const notesAtEnd = await helper.notesInDb()
+      const updatedNoteInDB = notesAtEnd.find(
+        (n) => n.id === noteToUpdate.id
+      )
+      assert.deepStrictEqual(updatedNoteInDB, noteToUpdate)
+    })
+  })
 })
 
 after(async () => {
