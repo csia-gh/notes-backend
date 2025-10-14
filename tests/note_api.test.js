@@ -12,11 +12,12 @@ const api = supertest(app)
 
 describe('when there is initially some notes saved', () => {
   beforeEach(async () => {
+    await User.deleteMany({})
     await Note.deleteMany({})
     await Note.insertMany(helper.initialNotes)
   })
 
-  test('notes are returned as json', async () => {
+  test('notes are returned as JSON', async () => {
     await api
       .get('/api/notes')
       .expect(200)
@@ -49,13 +50,13 @@ describe('when there is initially some notes saved', () => {
       assert.deepStrictEqual(resultNote.body, noteToView)
     })
 
-    test('fails with statuscode 404 if note does not exist', async () => {
+    test('fails with status code 404 if note does not exist', async () => {
       const validNonexistingId = await helper.nonExistingId()
 
       await api.get(`/api/notes/${validNonexistingId}`).expect(404)
     })
 
-    test('fails with statuscode 400 id is invalid', async () => {
+    test('fails with status code 400 if id is invalid', async () => {
       const invalidId = '5a3d5da59070081a82a3445'
 
       await api.get(`/api/notes/${invalidId}`).expect(400)
@@ -64,6 +65,12 @@ describe('when there is initially some notes saved', () => {
 
   describe('addition of a new note', () => {
     test('succeeds with valid data', async () => {
+      const { token } = await helper.getAuthToken(
+        api,
+        'testUser',
+        'sekret'
+      )
+
       const newNote = {
         content: 'async/await simplifies making async calls',
         important: true,
@@ -71,6 +78,7 @@ describe('when there is initially some notes saved', () => {
 
       await api
         .post('/api/notes')
+        .set('Authorization', `Bearer ${token}`)
         .send(newNote)
         .expect(201)
         .expect('Content-Type', /application\/json/)
@@ -84,21 +92,40 @@ describe('when there is initially some notes saved', () => {
       )
     })
 
-    test('fails with status code 400 if data invalid', async () => {
+    test('fails with status code 400 if the data invalid', async () => {
+      const { token } = await helper.getAuthToken(
+        api,
+        'testUser',
+        'sekret'
+      )
+
       const newNote = {
         important: true,
       }
 
-      await api.post('/api/notes').send(newNote).expect(400)
+      await api
+        .post('/api/notes')
+        .set('Authorization', `Bearer ${token}`)
+        .send(newNote)
+        .expect(400)
 
       const notesAtEnd = await helper.notesInDb()
 
       assert.strictEqual(notesAtEnd.length, helper.initialNotes.length)
     })
+
+    test('fails with status code 401 if no token is sent', async () => {
+      const newNote = {
+        content: 'token is required',
+        important: true,
+      }
+
+      await api.post('/api/notes').send(newNote).expect(401)
+    })
   })
 
   describe('deletion of a note', () => {
-    test('succeeds with status code 204 if id is valid', async () => {
+    test('succeeds with status code 204 if the id is valid', async () => {
       const notesAtStart = await helper.notesInDb()
       const noteToDelete = notesAtStart[0]
 
@@ -146,7 +173,7 @@ describe('when there is initially one user in db', () => {
     await user.save()
   })
 
-  test('creation succeeds with a fresh username', async () => {
+  test('user creation succeeds with a new username', async () => {
     const usersAtStart = await helper.usersInDb()
 
     const newUser = {
@@ -168,7 +195,7 @@ describe('when there is initially one user in db', () => {
     assert(usernames.includes(newUser.username))
   })
 
-  test('creation fails with proper statuscode and message if username already taken', async () => {
+  test('user creation fails with proper status code and message if username is already taken', async () => {
     const usersAtStart = await helper.usersInDb()
 
     const newUser = {
